@@ -1,28 +1,42 @@
-# Bibliotecas:
+# Bibliotecas
 import streamlit as st
 import pandas as pd
 from openpyxl import load_workbook
-import numpy as np
 import plotly.express as px
 import os
 
-# Defina os caminhos dos arquivos usando variáveis de ambiente
-DADOS_MONITORING_PATH = os.getenv('DADOS_MONITORING_PATH', 'J:\PCP\CLAUDIO\VS_CD\dash\.database\DATABASE.xlsx')
-DADOS_POINTING_PATH = os.getenv('DADOS_POINTING_PATH', 'J:\PCP\CLAUDIO\VS_CD\dash\.database\ACOMPANHAMENTO DE PRODUÇÃO ATUAL-.xlsx')
-DADOS_DEMAND_PATH = os.getenv('DADOS_DEMAND_PATH', 'J:\PCP\CLAUDIO\VS_CD\dash\.database\DATABASE.xlsx')
+# Definir o diretório base como o caminho do próprio script
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
-# Funções de carregamento de dados
-@st.cache_data 
+# Defina os caminhos dos arquivos usando caminhos relativos
+DADOS_POINTING_PATH = os.path.join(BASE_DIR, '.database', 'DATABASE.xlsx')
+DADOS_MONITORING_PATH = os.path.join(BASE_DIR, '.database', 'ACOMPANHAMENTO.xlsx')
+DADOS_DEMAND_PATH = os.path.join(BASE_DIR, '.database', 'ACOMPANHAMENTO.xlsx')
+
+@st.cache_data
+def carregar_todos_os_dados():
+    with st.spinner("""
+                    ######
+                    #### DASHBOARD OPERACIONAL
+                    ###### Carregando os dados...
+                    ###### Por favor aguarde...
+                    """):
+        dados_monitoring = carregar_dados_monitoring()
+        dados_pointing = carregar_dados_pointing()
+        dados_demand = carregar_dados_demand()
+    return dados_monitoring, dados_pointing, dados_demand
+@st.cache_data
 def carregar_dados_monitoring():
     try:
         wb = load_workbook(DADOS_MONITORING_PATH, data_only=True)
         sheet = wb.active
         data = sheet.values
-        columns = next(data)[0:]  # Pega a primeira linha como cabeçalho
+        columns = next(data)  # Pega a primeira linha como cabeçalho
         return pd.DataFrame(data, columns=columns)
     except FileNotFoundError:
         st.error(f"Arquivo '{DADOS_MONITORING_PATH}' não encontrado.")
         return None
+
 @st.cache_data 
 def carregar_dados_pointing():
     try:
@@ -34,7 +48,8 @@ def carregar_dados_pointing():
                 if len(mes_ano) == 2:
                     mes, ano = mes_ano[0].strip(), mes_ano[1].strip()
                     meses_validos = {
-                        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
+                        'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+                        'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
                     }
                     if mes in meses_validos and ano.isdigit():
                         df = pd.read_excel(DADOS_POINTING_PATH, sheet_name=sheet)
@@ -45,26 +60,18 @@ def carregar_dados_pointing():
     except FileNotFoundError:
         st.error(f"Arquivo '{DADOS_POINTING_PATH}' não encontrado.")
         return None
-@st.cache_data 
-def carrega_dados_demand():
+
+@st.cache_data
+def carregar_dados_demand():
     try:
         wb = load_workbook(DADOS_DEMAND_PATH, data_only=True)
         sheet = wb.active
         data = sheet.values
-        columns = next(data)[0:]  # Pega a primeira linha como cabeçalho
+        columns = next(data)  # Pega a primeira linha como cabeçalho
         return pd.DataFrame(data, columns=columns)
     except FileNotFoundError:
         st.error(f"Arquivo '{DADOS_DEMAND_PATH}' não encontrado.")
         return None
-# loadpage:
-@st.cache_data
-def carregar_todos_os_dados():
-    with st.spinner("Carregando dados..."):
-        st.title("DASHBOARD OPERACIONAL")
-        dados_monitoring = carregar_dados_monitoring()
-        dados_pointing = carregar_dados_pointing()
-        dados_demand = carrega_dados_demand()
-    return dados_monitoring, dados_pointing, dados_demand
 
 # Funções que representam o conteúdo de cada página
 def pagina1(dados_monitoring):
@@ -88,7 +95,10 @@ def pagina2(dados_pointing):
 
         # Filtrar dados por ano e mês
         if ano_selecionado and mes_selecionado:
-            dados_filtrados = dados_pointing[(dados_pointing['Ano'].isin(ano_selecionado)) & (dados_pointing['Mês'].isin(mes_selecionado))]
+            dados_filtrados = dados_pointing[
+                (dados_pointing['Ano'].isin(ano_selecionado)) & 
+                (dados_pointing['Mês'].isin(mes_selecionado))
+            ]
 
             if not dados_filtrados.empty:
                 with st.expander(f'Exibir Dados Filtrados para os Anos {ano_selecionado} e Meses {mes_selecionado}'):
@@ -109,9 +119,10 @@ def pagina2(dados_pointing):
                     dados_filtrados_grouped = dados_filtrados.groupby(['Ano', 'Mês'])[['Produção Cobre Realizado', 'Produção Alumínio Realizado']].sum()
 
                     st.write("### Gráfico de Linhas")
-                    fig_line = px.line(dados_filtrados_grouped.reset_index(), x='Mês', y=['Produção Cobre Realizado', 'Produção Alumínio Realizado'], 
+                    fig_line = px.line(dados_filtrados_grouped.reset_index(), x='Mês', 
+                                       y=['Produção Cobre Realizado', 'Produção Alumínio Realizado'], 
                                        labels={'value': 'Produção', 'index': 'Ano-Mês'}, 
-                                       title="Evolução da Produção Realizada (Cobre vs Alumínio")
+                                       title="Evolução da Produção Realizada (Cobre vs Alumínio)")
                     st.plotly_chart(fig_line)
 
                     st.write("### Gráfico de Barras")
@@ -144,21 +155,18 @@ def pagina3(dados_demand):
     if dados_demand is not None:
         st.dataframe(dados_demand)
 
-# Interface do sistema:
+# Interface do sistema
 st.set_page_config(layout="wide")
 
-# Carregar todos os dados
-dados_monitoring, dados_pointing, dados_demand = carregar_todos_os_dados()
-
-# logo
-imagem_caminho = "J:\PCP\CLAUDIO\VS_CD\dash\.uploads\Logo.png"
-try:
+# Logo
+imagem_caminho = os.path.join(BASE_DIR, '.uploads', 'Logo.png')
+if os.path.exists(imagem_caminho):
     st.sidebar.image(imagem_caminho, use_column_width=True)
-except FileNotFoundError:
+else:
     st.sidebar.error(f"Imagem no caminho '{imagem_caminho}' não encontrada.")
 
 # Menu lateral com botões para navegação entre as páginas
-st.sidebar.markdown("<br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 
 # Criação dos botões com espaçamento entre eles
 if 'pagina_atual' not in st.session_state:
@@ -171,7 +179,8 @@ botao_pagina2 = st.sidebar.button('Página 2 (ICON)', on_click=lambda: st.sessio
 st.sidebar.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
 
 botao_pagina3 = st.sidebar.button('Página 3 (ICON)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina3'}))
-st.sidebar.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
+# Carregar os dados
+dados_monitoring, dados_pointing, dados_demand = carregar_todos_os_dados()
 
 # Exibição da página atual
 pagina_atual = st.session_state.pagina_atual
