@@ -2,48 +2,46 @@
 import streamlit as st
 import pandas as pd
 from openpyxl import load_workbook
-import plotly.express as px
 import os
+import plotly
 
 # Definir o diretório base como o caminho do próprio script
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Defina os caminhos dos arquivos usando caminhos relativos
-DADOS_POINTING_PATH = os.path.join(BASE_DIR, '.database', 'DATABASE.xlsx')
-DADOS_MONITORING_PATH = os.path.join(BASE_DIR, '.database', 'ACOMPANHAMENTO.xlsx')
-DADOS_DEMAND_PATH = os.path.join(BASE_DIR, '.database', 'ACOMPANHAMENTO.xlsx')
+DADOS_POINTING_PATH = os.path.join(BASE_DIR, '.database', 'ACOMPANHAMENTO DE PRODUÇÃO ATUAL-.xlsx')
+DADOS_MONITORING_PATH = os.path.join(BASE_DIR, '.database', 'DATABASE.xlsx')
+DADOS_DEMAND_PATH = os.path.join(BASE_DIR, '.database', 'DATABASE.xlsx')
 
-@st.cache_data
-def carregar_todos_os_dados():
-    with st.spinner("""
-                    ######
-                    #### DASHBOARD OPERACIONAL
-                    ###### Carregando os dados...
-                    ###### Por favor aguarde...
-                    """):
-        dados_monitoring = carregar_dados_monitoring()
-        dados_pointing = carregar_dados_pointing()
-        dados_demand = carregar_dados_demand()
-    return dados_monitoring, dados_pointing, dados_demand
 @st.cache_data
 def carregar_dados_monitoring():
     try:
-        wb = load_workbook(DADOS_MONITORING_PATH, data_only=True)
-        sheet = wb.active
+        wb1 = load_workbook(DADOS_MONITORING_PATH, data_only=True)
+        sheet = wb1.active
         data = sheet.values
         columns = next(data)  # Pega a primeira linha como cabeçalho
-        return pd.DataFrame(data, columns=columns)
+        
+        # Corrigir a leitura dos dados
+        dados = pd.DataFrame(data, columns=columns)
+        dados = dados[['Produção Cobre Realizado', 'Produção Alumínio Realizado']]
+        return dados
     except FileNotFoundError:
         st.error(f"Arquivo '{DADOS_MONITORING_PATH}' não encontrado.")
         return None
 
-@st.cache_data 
-def carregar_dados_pointing():
+@st.cache_data
+def carregar_dados_pointing(arquivo=DADOS_POINTING_PATH):
     try:
-        wb = load_workbook(DADOS_POINTING_PATH, data_only=True)
-        dados = pd.DataFrame()
-        for sheet in wb.sheetnames:
-            if '-' in sheet:  # Verifica se a aba tem um nome que indica mês e ano
+        # Inicializa uma lista para armazenar os DataFrames
+        dados_list = []
+        
+        # Lê o arquivo Excel e verifica as abas
+        xls = pd.ExcelFile(arquivo)  # Abre o arquivo Excel
+        print("Abas encontradas:")
+        for sheet in xls.sheet_names:
+            print(sheet)  # Imprime o nome da aba encontrada
+            # Filtra as abas que contém mês e ano
+            if '-' in sheet:
                 mes_ano = sheet.split('-')
                 if len(mes_ano) == 2:
                     mes, ano = mes_ano[0].strip(), mes_ano[1].strip()
@@ -52,96 +50,96 @@ def carregar_dados_pointing():
                         'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
                     }
                     if mes in meses_validos and ano.isdigit():
-                        df = pd.read_excel(DADOS_POINTING_PATH, sheet_name=sheet)
-                        df['Mês'] = mes
-                        df['Ano'] = ano  # Adiciona a coluna 'Ano'
-                        dados = pd.concat([dados, df], ignore_index=True)
-        return dados
+                        df = pd.read_excel(arquivo, sheet_name=sheet)
+                        df['Mês'] = mes  # Adiciona a coluna 'Mês'
+                        df['Ano'] = int(ano)  # Adiciona a coluna 'Ano'
+                        dados_list.append(df)  # Adiciona o DataFrame à lista
+        # Concatena todos os DataFrames da lista em um único DataFrame
+        if dados_list:
+            return pd.concat(dados_list, ignore_index=True)
+        else:
+            st.error("Nenhuma aba válida encontrada.")
+            return None
     except FileNotFoundError:
-        st.error(f"Arquivo '{DADOS_POINTING_PATH}' não encontrado.")
+        st.error(f"Arquivo '{arquivo}' não encontrado.")
         return None
 
 @st.cache_data
 def carregar_dados_demand():
     try:
-        wb = load_workbook(DADOS_DEMAND_PATH, data_only=True)
-        sheet = wb.active
+        wb3 = load_workbook(DADOS_DEMAND_PATH, data_only=True)
+        sheet = wb3.active
         data = sheet.values
-        columns = next(data)  # Pega a primeira linha como cabeçalho
-        return pd.DataFrame(data, columns=columns)
+        columns = next(data)
+        
+        dados = pd.DataFrame(data, columns=columns)  # Corrigir a leitura dos dados
+        dados = dados[['Data', 'Produção Cobre Realizado', 'Produção Alumínio Realizado']]
+        return dados
     except FileNotFoundError:
         st.error(f"Arquivo '{DADOS_DEMAND_PATH}' não encontrado.")
         return None
 
-# Funções que representam o conteúdo de cada página
-def pagina1(dados_monitoring):
+# Funções para cada página
+@st.cache_data
+def pagina1():
     st.write('## Monitoring')
     st.write('#### Programação')
-    if dados_monitoring is not None:
-        st.dataframe(dados_monitoring)
 
-def pagina2(dados_pointing):
+@st.cache_data
+def pagina2():
     st.write('## Pointing')
     st.write('#### Acompanhamento de produção')
-    
-    if dados_pointing is not None:
-        # Obter anos e meses únicos dos dados
-        anos = dados_pointing['Ano'].unique()
-        meses = dados_pointing['Mês'].unique()
+    # Carregar os dados
+    dados = carregar_dados_pointing()
 
-        # Filtros para ano e mês
+    if dados is not None:
+        # Extraindo anos e meses diretamente das colunas
+        anos = dados['Ano'].unique() if 'Ano' in dados.columns else []
+        meses = dados['Mês'].unique() if 'Mês' in dados.columns else []
+
+        # Seleção dos anos e meses
         ano_selecionado = st.multiselect('Selecione o(s) Ano(s)', anos)
         mes_selecionado = st.multiselect('Selecione o(s) Mês(es)', meses)
 
         # Filtrar dados por ano e mês
         if ano_selecionado and mes_selecionado:
-            dados_filtrados = dados_pointing[
-                (dados_pointing['Ano'].isin(ano_selecionado)) & 
-                (dados_pointing['Mês'].isin(mes_selecionado))
+            dados_filtrados = dados[
+                (dados['Mês'].isin(mes_selecionado)) &
+                (dados['Ano'].isin(ano_selecionado))
             ]
 
             if not dados_filtrados.empty:
+                # Exibir dados filtrados em uma lista expansível (toggle list)
                 with st.expander(f'Exibir Dados Filtrados para os Anos {ano_selecionado} e Meses {mes_selecionado}'):
                     st.dataframe(dados_filtrados)
 
+                # Somar as colunas 'Produção Cobre' e 'Produção Alumínio'
                 if 'Produção Cobre Realizado' in dados_filtrados.columns and 'Produção Alumínio Realizado' in dados_filtrados.columns:
                     total_cobre = dados_filtrados['Produção Cobre Realizado'].sum()
                     total_aluminio = dados_filtrados['Produção Alumínio Realizado'].sum()
 
+                    # Exibir métricas de Produção Cobre e Produção Alumínio
                     col1, col2 = st.columns(2)
                     with col1:
-                        st.metric(label="Produção de Cobre", value=f"{total_cobre:.2f}")
-
+                        st.metric(label="Cobre", value=f"{total_cobre:.2f}")
                     with col2:
-                        st.metric(label="Produção de Alumínio", value=f"{total_aluminio:.2f}")
+                        st.metric(label="Alumínio", value=f"{total_aluminio:.2f}")
 
-                    # Agrupar por 'Ano' e 'Mês' e somar as colunas de produção
+                    # Gráfico de Linhas
                     dados_filtrados_grouped = dados_filtrados.groupby(['Ano', 'Mês'])[['Produção Cobre Realizado', 'Produção Alumínio Realizado']].sum()
 
                     st.write("### Gráfico de Linhas")
-                    fig_line = px.line(dados_filtrados_grouped.reset_index(), x='Mês', 
-                                       y=['Produção Cobre Realizado', 'Produção Alumínio Realizado'], 
-                                       labels={'value': 'Produção', 'index': 'Ano-Mês'}, 
-                                       title="Evolução da Produção Realizada (Cobre vs Alumínio)")
-                    st.plotly_chart(fig_line)
+                    st.plotly_chart(plotly.graph_objs.Figure(data=[plotly.graph_objs.Scatter(x=dados_filtrados_grouped.index, y=dados_filtrados_grouped['Produção Cobre Realizado'])]))
 
+                    # Gráfico de Barras
                     st.write("### Gráfico de Barras")
-                    fig_bar = px.bar(dados_filtrados_grouped.reset_index(), x='Mês', 
-                                     y=['Produção Cobre Realizado', 'Produção Alumínio Realizado'], 
-                                     labels={'value': 'Produção', 'index': 'Ano-Mês'}, 
-                                     title="Produção Realizada Agregada (Cobre vs Alumínio)")
-                    st.plotly_chart(fig_bar)
+                    st.plotly_chart(plotly.graph_objs.Figure(data=[plotly.graph_objs.Bar(x=dados_filtrados_grouped.index, y=dados_filtrados_grouped['Produção Alumínio Realizado'])]))
 
+                    # Gráfico de Pizza (Proporção)
                     st.write("### Gráfico de Setores")
-                    proporcoes = pd.DataFrame({
-                        'Material': ['Cobre', 'Alumínio'],
-                        'Produção': [total_cobre, total_aluminio]
-                    })
-                    fig_pie = px.pie(proporcoes, names='Material', values='Produção', 
-                                     title="Proporção da Produção Realizada (Cobre vs Alumínio)")
-                    st.plotly_chart(fig_pie)
+                    st.plotly_chart(plotly.graph_objs.Figure(data=[plotly.graph_objs.Pie(labels=dados_filtrados_grouped.index, values=dados_filtrados_grouped['Produção Cobre Realizado'])]))
                 else:
-                    st.write("Colunas de produção realizadas não encontradas nos dados.")
+                    st.write("Colunas de produção não encontradas nos dados.")
             else:
                 st.write("Nenhum dado encontrado para os filtros selecionados.")
         else:
@@ -149,44 +147,33 @@ def pagina2(dados_pointing):
     else:
         st.write("Erro ao carregar os dados.")
 
-def pagina3(dados_demand):
+@st.cache_data
+def pagina3():
     st.write('## Demand')
     st.write('#### Relevância por composto')
-    if dados_demand is not None:
-        st.dataframe(dados_demand)
 
 # Interface do sistema
-st.set_page_config(layout="wide")
+st.set_page_config(page_title="Dashboard", page_icon="💡", layout="wide")
 
-# Logo
 imagem_caminho = os.path.join(BASE_DIR, '.uploads', 'Logo.png')
 if os.path.exists(imagem_caminho):
     st.sidebar.image(imagem_caminho, use_column_width=True)
 else:
     st.sidebar.error(f"Imagem no caminho '{imagem_caminho}' não encontrada.")
 
-# Menu lateral com botões para navegação entre as páginas
-st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
-
-# Criação dos botões com espaçamento entre eles
 if 'pagina_atual' not in st.session_state:
-    st.session_state.pagina_atual = 'pagina1'  # Página inicial
+    st.session_state.pagina_atual = 'pagina1'
 
-botao_pagina1 = st.sidebar.button('Página 1 (ICON)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina1'}))
-st.sidebar.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
+botao_pagina1 = st.sidebar.button('(ICON1)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina1'}))
+st.sidebar.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
+botao_pagina2 = st.sidebar.button('(ICON2)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina2'}))
+st.sidebar.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
+botao_pagina3 = st.sidebar.button('(ICON3)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina3'}))
 
-botao_pagina2 = st.sidebar.button('Página 2 (ICON)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina2'}))
-st.sidebar.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
-
-botao_pagina3 = st.sidebar.button('Página 3 (ICON)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina3'}))
-# Carregar os dados
-dados_monitoring, dados_pointing, dados_demand = carregar_todos_os_dados()
-
-# Exibição da página atual
-pagina_atual = st.session_state.pagina_atual
-if pagina_atual == 'pagina1':
-    pagina1(dados_monitoring)
-elif pagina_atual == 'pagina2':
-    pagina2(dados_pointing)
-elif pagina_atual == 'pagina3':
-    pagina3(dados_demand)
+if st.session_state.pagina_atual == 'pagina1':
+    pagina1()
+elif st.session_state.pagina_atual == 'pagina2':
+    pagina2()
+elif st.session_state.pagina_atual == 'pagina3':
+    pagina3()
