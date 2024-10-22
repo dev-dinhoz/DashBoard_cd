@@ -9,7 +9,7 @@ import plotly
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Defina os caminhos dos arquivos usando caminhos relativos
-DADOS_POINTING_PATH = os.path.join(BASE_DIR, '.database', 'ACOMPANHAMENTO DE PRODUÇÃO ATUAL-.xlsx')
+DADOS_POINTING_PATH = os.path.join(BASE_DIR, '.database', 'ACOMPANHAMENTO.xlsx')
 DADOS_MONITORING_PATH = os.path.join(BASE_DIR, '.database', 'DATABASE.xlsx')
 DADOS_DEMAND_PATH = os.path.join(BASE_DIR, '.database', 'DATABASE.xlsx')
 
@@ -28,7 +28,6 @@ def carregar_dados_monitoring():
     except FileNotFoundError:
         st.error(f"Arquivo '{DADOS_MONITORING_PATH}' não encontrado.")
         return None
-
 @st.cache_data
 def carregar_dados_pointing(arquivo=DADOS_POINTING_PATH):
     try:
@@ -63,7 +62,6 @@ def carregar_dados_pointing(arquivo=DADOS_POINTING_PATH):
     except FileNotFoundError:
         st.error(f"Arquivo '{arquivo}' não encontrado.")
         return None
-
 @st.cache_data
 def carregar_dados_demand():
     try:
@@ -78,14 +76,11 @@ def carregar_dados_demand():
     except FileNotFoundError:
         st.error(f"Arquivo '{DADOS_DEMAND_PATH}' não encontrado.")
         return None
-
+    
 # Funções para cada página
-@st.cache_data
 def pagina1():
     st.write('## Monitoring')
     st.write('#### Programação')
-
-@st.cache_data
 def pagina2():
     st.write('## Pointing')
     st.write('#### Acompanhamento de produção')
@@ -146,8 +141,6 @@ def pagina2():
             st.write("Selecione pelo menos um ano e um mês para comparar os dados.")
     else:
         st.write("Erro ao carregar os dados.")
-
-@st.cache_data
 def pagina3():
     st.write('## Demand')
     st.write('#### Relevância por composto')
