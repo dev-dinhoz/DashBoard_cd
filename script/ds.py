@@ -1,4 +1,4 @@
-# Bibliotecas
+import locale
 import streamlit as st
 import pandas as pd
 from openpyxl import load_workbook
@@ -7,6 +7,17 @@ import plotly.express as px
 
 # Definir o diretório base como o caminho do próprio script
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+# Definir o formato de números como pt-BR
+locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
+
+def formatar_valores(valor):
+    """ Formatar valores numéricos no formato 10.000,00 """
+    return locale.format_string('%.2f', valor / 1000, grouping=True)  # Dividimos por 1000 para mostrar em milhares
+
+def formatar_data_brasileira(data):
+    """ Formatar data no formato brasileiro dd/mm/yyyy """
+    return data.strftime('%d/%m/%Y')
 
 # Defina os caminhos dos arquivos usando caminhos relativos
 DADOS_POINTING_PATH = os.path.join(BASE_DIR, '.database', 'ACOMPANHAMENTO DE PRODUÇÃO ATUAL-.xlsx')
@@ -17,22 +28,29 @@ DADOS_DEMAND_PATH = os.path.join(BASE_DIR, '.database', 'DATABASE.xlsx')
 @st.cache_data
 def carregar_dados_pointing_ajustado(arquivo, sheet_name):
     try:
-        df = pd.read_excel(arquivo, sheet_name=sheet_name)
+        df = pd.read_excel(arquivo, sheet_name=sheet_name, header=0)  # Ignora fórmulas e apenas retorna os valores
 
         # Limpar e organizar os dados
-        df_cleaned = df.dropna(how='all').iloc[2:, [1, 2, 5, 8]]
-        df_cleaned.columns = ['Data', 'Produção Cobre Realizado', 'Meta/Dia Cobre', 'Produção Alumínio Realizado']
+        df_cleaned = df.dropna(how='all').iloc[1:, [1, 2, 5, 8, 11]]  # Seleciona as colunas relevantes
+        df_cleaned.columns = ['Data', 'Produção Cobre Realizado', 'Meta/Dia Cobre', 'Produção Alumínio Realizado', 'Meta/Dia Alumínio']
         
         df_cleaned['Data'] = pd.to_datetime(df_cleaned['Data'], errors='coerce')
         df_cleaned.dropna(subset=['Data'], inplace=True)
 
+        # Aplicar a formatação brasileira na data
+        df_cleaned['Data'] = df_cleaned['Data'].dt.strftime('%d/%m/%Y')
+
+        # Convertendo as colunas para numérico
         df_cleaned['Produção Cobre Realizado'] = pd.to_numeric(df_cleaned['Produção Cobre Realizado'], errors='coerce').fillna(0)
+        df_cleaned['Meta/Dia Cobre'] = pd.to_numeric(df_cleaned['Meta/Dia Cobre'], errors='coerce').fillna(0)
         df_cleaned['Produção Alumínio Realizado'] = pd.to_numeric(df_cleaned['Produção Alumínio Realizado'], errors='coerce').fillna(0)
+        df_cleaned['Meta/Dia Alumínio'] = pd.to_numeric(df_cleaned['Meta/Dia Alumínio'], errors='coerce').fillna(0)
 
         return df_cleaned
     except Exception as e:
         st.error(f"Erro ao carregar a aba {sheet_name}: {e}")
         return None
+
 # Função para carregar todas as abas válidas e processar os dados de pointing
 @st.cache_data
 def carregar_todas_abas_ajustado(arquivo):
@@ -56,6 +74,7 @@ def carregar_todas_abas_ajustado(arquivo):
                         dados_list.append(df_cleaned)
     
     return pd.concat(dados_list, ignore_index=True) if dados_list else None
+
 @st.cache_data
 def carregar_dados_monitoring():
     try:
@@ -71,8 +90,10 @@ def carregar_dados_monitoring():
     except FileNotFoundError:
         st.error(f"Arquivo '{DADOS_MONITORING_PATH}' não encontrado.")
         return None
+
 @st.cache_data
 def carregar_dados_demand():
+    
     try:
         wb3 = load_workbook(DADOS_DEMAND_PATH, data_only=True)
         sheet = wb3.active
@@ -88,21 +109,22 @@ def carregar_dados_demand():
 
 # Funções para cada página
 def pagina1():
-    st.write('## Monitoring')
-    st.write('#### Programação')
+    st.write('#### Status máquina')
+
 def pagina2():
-    st.write('## Pointing')
-    st.write('#### Acompanhamento de produção')
+    st.write('#### ACOMPANHAMENTO DE PRODUÇÃO')
 
     # Carregar os dados
     dados = carregar_todas_abas_ajustado(DADOS_POINTING_PATH)
 
     if dados is not None:
+        col1, col2 = st.columns(2)
+        with col1:
         # Seleção entre Cobre e Alumínio
-        producao_tipo = st.radio("Escolha o tipo de produção", ('Cobre', 'Alumínio'))
-
+            producao_tipo = st.radio("Escolha o tipo de produção", ('Cobre', 'Alumínio'))
+        with col2:
         # Seleção entre Comparação por Anos ou Meses
-        comparacao_tipo = st.radio("Escolha como deseja comparar os dados", ('Comparação por Anos', 'Comparação por Meses'))
+            comparacao_tipo = st.radio("Escolha como deseja comparar os dados", ('Comparação por Anos', 'Comparação por Meses'))
 
         if comparacao_tipo == 'Comparação por Anos':
             # Usuário seleciona um ou mais anos para análise
@@ -124,7 +146,7 @@ def pagina2():
                         expectativa_ano = dados_ano['Meta/Dia Cobre'].sum()
                     else:
                         total_producao_ano = dados_ano['Produção Alumínio Realizado'].sum()
-                        expectativa_ano = dados_ano['Meta/Dia Cobre'].sum()
+                        expectativa_ano = dados_ano['Meta/Dia Alumínio'].sum()
 
                     producao_total_ano.append(total_producao_ano)
                     expectativa_total_ano.append(expectativa_ano)
@@ -133,13 +155,16 @@ def pagina2():
                 st.write("### Relação entre Anos")
                 df_anos = pd.DataFrame({
                     'Ano': anos_selecionados,
-                    'Quantidade Total Produzida': producao_total_ano,
-                    'Expectativa de Produção': expectativa_total_ano
+                    'Quantidade Total Produzida': [formatar_valores(val) for val in producao_total_ano],
+                    'Expectativa de Produção': [formatar_valores(val) for val in expectativa_total_ano]
                 })
                 st.dataframe(df_anos)
 
                 # Gráfico de setores para a relação entre os anos
-                fig_anos = px.pie(df_anos, names='Ano', values='Quantidade Total Produzida',
+                fig_anos = px.pie(pd.DataFrame({
+                    'Ano': anos_selecionados,
+                    'Quantidade Total Produzida': producao_total_ano
+                }), names='Ano', values='Quantidade Total Produzida',
                                   title=f"Distribuição da Produção nos Anos Selecionados - {producao_tipo}")
                 st.plotly_chart(fig_anos)
 
@@ -155,10 +180,8 @@ def pagina2():
                 # Exibir uma tabela com a produção de cada mês do ano selecionado
                 meses = dados_filtrados['Mês'].unique()
 
-                producao_total_mes = []
-                expectativa_total_mes = []
-                
                 for mes in meses:
+                    # Filtrar dados do mês
                     dados_mes = dados_filtrados[dados_filtrados['Mês'] == mes]
 
                     if producao_tipo == 'Cobre':
@@ -166,21 +189,28 @@ def pagina2():
                         expectativa_mes = dados_mes['Meta/Dia Cobre'].sum()
                     else:
                         total_mes = dados_mes['Produção Alumínio Realizado'].sum()
-                        expectativa_mes = dados_mes['Meta/Dia Cobre'].sum()
+                        expectativa_mes = dados_mes['Meta/Dia Alumínio'].sum()
 
-                    producao_total_mes.append(total_mes)
-                    expectativa_total_mes.append(expectativa_mes)
+                    # Exibir a produção e expectativa do mês fora do toggle
+                    col1, col2 = st.columns([1, 1])
+                    with col1:
+                        st.write(f"**Produção Total em {mes}:** {formatar_valores(total_mes)}")
+                    with col2:
+                        st.write(f"**Expectativa Total em {mes}:** {formatar_valores(expectativa_mes)}")
 
-                # Exibir os dados em formato de tabela
-                st.write(f"### Produção Mensal no Ano de {ano_selecionado}")
-                df_meses = pd.DataFrame({
-                    'Meses': meses,
-                    'Quantidade Total Produzida': producao_total_mes,
-                    'Expectativa de Produção': expectativa_total_mes
-                })
-                st.dataframe(df_meses)
+                    # Toggle list para mostrar os detalhes do mês
+                    with st.expander(f"Exibir detalhes de {mes}"):
+                        st.write(f"### Produção Diária - {mes}/{ano_selecionado}")
+                        st.dataframe(dados_mes[['Data', f'Produção {producao_tipo} Realizado', f'Meta/Dia {producao_tipo}']])
 
                 # Gráfico de setores para a relação entre os meses do ano selecionado
+                df_meses = pd.DataFrame({
+                    'Meses': meses,
+                    'Quantidade Total Produzida': [dados_filtrados[dados_filtrados['Mês'] == m][f'Produção {producao_tipo} Realizado'].sum() for m in meses],
+                    'Expectativa de Produção': [dados_filtrados[dados_filtrados['Mês'] == m][f'Meta/Dia {producao_tipo}'].sum() for m in meses]
+                })
+
+                st.write(f"### Distribuição da Produção Mensal - {ano_selecionado}")
                 fig_meses = px.pie(df_meses, names='Meses', values='Quantidade Total Produzida',
                                    title=f"Distribuição da Produção nos Meses de {ano_selecionado} - {producao_tipo}")
                 st.plotly_chart(fig_meses)
@@ -192,17 +222,17 @@ def pagina2():
 
                 col1, col2, col3 = st.columns(3)
                 with col1:
-                    st.write(f"**Total Produzido no Ano**: {total_anual:.2f}")
+                    st.write(f"**Total Produzido no Ano**: {formatar_valores(total_anual)}")
                 with col2:
-                    st.write(f"**Expectativa de Produção no Ano**: {expectativa_anual:.2f}")
+                    st.write(f"**Expectativa de Produção no Ano**: {formatar_valores(expectativa_anual)}")
                 with col3:
-                    st.write(f"**Média de Produção Anual**: {media_anual:.2f}")
+                    st.write(f"**Média de Produção Mensal**: {formatar_valores(media_anual)}")
 
     else:
         st.write("Erro ao carregar os dados.")
+
 def pagina3():
-    st.write('## Demand')
-    st.write('#### Relevância por composto')
+    st.write('#### Demanda por composto')
 
 # Interface do sistema
 st.set_page_config(page_title="Dashboard", page_icon="💡", layout="wide")
