@@ -37,14 +37,17 @@ def carregar_dados_pointing_ajustado(arquivo, sheet_name):
         df_cleaned['Data'] = pd.to_datetime(df_cleaned['Data'], errors='coerce')
         df_cleaned.dropna(subset=['Data'], inplace=True)
 
+        # Adicionar coluna "Dia" com contagem que reinicia a cada mês
+        df_cleaned[''] = df_cleaned.groupby(df_cleaned['Data'].dt.to_period("M")).cumcount() + 1 # Testar passar df vazio como argumento
+
         # Aplicar a formatação brasileira na data
         df_cleaned['Data'] = df_cleaned['Data'].dt.strftime('%d/%m/%Y')
 
         # Convertendo as colunas para numérico
         df_cleaned['Produção Cobre Realizado'] = pd.to_numeric(df_cleaned['Produção Cobre Realizado'], errors='coerce').fillna(0)
-        df_cleaned['Meta/Dia Cobre'] = pd.to_numeric(df_cleaned['Meta/Dia Cobre'], errors='coerce').fillna(0)
+        df_cleaned['Meta/Dia Cobre'] = pd.to_numeric(df_cleaned['Meta/Dia Cobre'], errors='coerce').fillna(0) # ajustar método de calculo
         df_cleaned['Produção Alumínio Realizado'] = pd.to_numeric(df_cleaned['Produção Alumínio Realizado'], errors='coerce').fillna(0)
-        df_cleaned['Meta/Dia Alumínio'] = pd.to_numeric(df_cleaned['Meta/Dia Alumínio'], errors='coerce').fillna(0)
+        df_cleaned['Meta/Dia Alumínio'] = pd.to_numeric(df_cleaned['Meta/Dia Alumínio'], errors='coerce').fillna(0) # ajustar método de calculo
 
         return df_cleaned
     except Exception as e:
@@ -109,7 +112,7 @@ def carregar_dados_demand():
 
 # Funções para cada página
 def pagina1():
-    st.write('#### Status máquina')
+    st.write('#### STATUS MÁQUINA')
 
 def pagina2():
     st.write('#### ACOMPANHAMENTO DE PRODUÇÃO')
@@ -158,7 +161,8 @@ def pagina2():
                     'Quantidade Total Produzida': [formatar_valores(val) for val in producao_total_ano],
                     'Expectativa de Produção': [formatar_valores(val) for val in expectativa_total_ano]
                 })
-                st.dataframe(df_anos)
+                dados_ano.set_index([''], inplace=True)
+                st.dataframe(df_anos, use_container_width=True)
 
                 # Gráfico de setores para a relação entre os anos
                 fig_anos = px.pie(pd.DataFrame({
@@ -179,18 +183,19 @@ def pagina2():
                 
                 # Exibir uma tabela com a produção de cada mês do ano selecionado
                 meses = dados_filtrados['Mês'].unique()
-
                 for mes in meses:
                     # Filtrar dados do mês
-                    dados_mes = dados_filtrados[dados_filtrados['Mês'] == mes]
+                    dados_mes = dados_filtrados[dados_filtrados['Mês'] == mes].copy()
 
                     if producao_tipo == 'Cobre':
                         total_mes = dados_mes['Produção Cobre Realizado'].sum()
-                        expectativa_mes = dados_mes['Meta/Dia Cobre'].sum()
+                        expectativa_mes = dados_mes['Meta/Dia Cobre'].sum() # ajustar método de calculo
                     else:
                         total_mes = dados_mes['Produção Alumínio Realizado'].sum()
-                        expectativa_mes = dados_mes['Meta/Dia Alumínio'].sum()
+                        expectativa_mes = dados_mes['Meta/Dia Alumínio'].sum() # ajustar método de calculo
 
+       # A exppectativa de produção de cobre para o mês selecionado deve ser a multiplicação do primeiro dia da meta por o número de dias no mês
+                     
                     # Exibir a produção e expectativa do mês fora do toggle
                     col1, col2 = st.columns([1, 1])
                     with col1:
@@ -201,8 +206,10 @@ def pagina2():
                     # Toggle list para mostrar os detalhes do mês
                     with st.expander(f"Exibir detalhes de {mes}"):
                         st.write(f"### Produção Diária - {mes}/{ano_selecionado}")
-                        st.dataframe(dados_mes[['Data', f'Produção {producao_tipo} Realizado', f'Meta/Dia {producao_tipo}']])
-
+                        # Exibir DataFrame com a coluna "Dia" como índice
+                        dados_mes.set_index([''], inplace=True) # testar passar argumento vazio
+                        st.dataframe(dados_mes[['Data', f'Produção {producao_tipo} Realizado', f'Meta/Dia {producao_tipo}']], use_container_width=True)
+                        
                 # Gráfico de setores para a relação entre os meses do ano selecionado
                 df_meses = pd.DataFrame({
                     'Meses': meses,
@@ -232,10 +239,10 @@ def pagina2():
         st.write("Erro ao carregar os dados.")
 
 def pagina3():
-    st.write('#### Demanda por composto')
-
+    st.write('#### DEMANDA POR COMPOSTO')
+    st.set_page_config()
 # Interface do sistema
-st.set_page_config(page_title="Dashboard", page_icon="💡", layout="wide")
+st.set_page_config(page_title="DashBoard", page_icon="💡", layout="wide")
 
 imagem_caminho = os.path.join(BASE_DIR, '.uploads', 'Logo.png')
 if os.path.exists(imagem_caminho):
@@ -246,11 +253,11 @@ else:
 if 'pagina_atual' not in st.session_state:
     st.session_state.pagina_atual = 'pagina1'
 
-st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
 botao_pagina1 = st.sidebar.button('(ICON1)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina1'}))
-st.sidebar.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
 botao_pagina2 = st.sidebar.button('(ICON2)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina2'}))
-st.sidebar.markdown("<br><br><br><br><br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
 botao_pagina3 = st.sidebar.button('(ICON3)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina3'}))
 
 if st.session_state.pagina_atual == 'pagina1':
