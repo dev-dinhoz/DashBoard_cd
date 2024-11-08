@@ -96,7 +96,6 @@ def carregar_dados_monitoring():
 
 @st.cache_data
 def carregar_dados_demand():
-    
     try:
         wb3 = load_workbook(DADOS_DEMAND_PATH, data_only=True)
         sheet = wb3.active
@@ -112,10 +111,13 @@ def carregar_dados_demand():
 
 # Funções para cada página
 def pagina1():
-    st.write('#### STATUS MÁQUINA')
+    st.header('_Status Máquina_', divider='gray')
+
+# ajustar os o carregamento de addos de alumínio
+# ajustar formatação dos valores do DataFrame para apenas 2 casas decimais sejam exibidas depois da vírgula
 
 def pagina2():
-    st.write('#### ACOMPANHAMENTO DE PRODUÇÃO')
+    st.header('_Acompanhamento de Produção_', divider='gray')
 
     # Carregar os dados
     dados = carregar_todas_abas_ajustado(DADOS_POINTING_PATH)
@@ -189,13 +191,13 @@ def pagina2():
 
                     if producao_tipo == 'Cobre':
                         total_mes = dados_mes['Produção Cobre Realizado'].sum()
-                        expectativa_mes = dados_mes['Meta/Dia Cobre'].sum() # ajustar método de calculo
+                        expectativa_mes = dados_mes['Meta/Dia Cobre'].iloc[0] * len(dados_mes.index)
                     else:
                         total_mes = dados_mes['Produção Alumínio Realizado'].sum()
-                        expectativa_mes = dados_mes['Meta/Dia Alumínio'].sum() # ajustar método de calculo
+                        expectativa_mes = dados_mes['Meta/Dia Alumínio'].iloc[0] * len(dados_mes.index) # ajustar método de calculo
 
-       # A exppectativa de produção de cobre para o mês selecionado deve ser a multiplicação do primeiro dia da meta por o número de dias no mês
-                     
+        # O mêtodo de calculo da expectativa de produção deve ser ajustado para a multiplicação do primeiro dia da meta por o número de dias no mês (índice)
+                    
                     # Exibir a produção e expectativa do mês fora do toggle
                     col1, col2 = st.columns([1, 1])
                     with col1:
@@ -237,12 +239,11 @@ def pagina2():
 
     else:
         st.write("Erro ao carregar os dados.")
-
 def pagina3():
-    st.write('#### DEMANDA POR COMPOSTO')
-    st.set_page_config()
+     st.header('_Demanda por Composto_', divider='gray')
+
 # Interface do sistema
-st.set_page_config(page_title="DashBoard", page_icon="💡", layout="wide")
+st.set_page_config(page_title="ryan chola", page_icon="💡", layout="wide")
 
 imagem_caminho = os.path.join(BASE_DIR, '.uploads', 'Logo.png')
 if os.path.exists(imagem_caminho):
