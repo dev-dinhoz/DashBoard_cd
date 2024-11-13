@@ -116,8 +116,10 @@ def carregar_dados_demand():
 def pagina1():
     st.header('_Status Máquina_', divider='gray')
 
+# 
+# ajustar o índice da relação de anos
 # ajustar os o carregamento de dados de alumínio
-# ajustar formatação dos valores do DataFrame META/DIA para apenas 2 casas decimais sejam exibidas depois da vírgula
+# ajustar formatação dos valores do DataFrame para apenas 2 casas decimais sejam exibidas depois da vírgula
 
 def pagina2():
     st.header('_Acompanhamento de Produção_', divider='gray')
@@ -166,7 +168,7 @@ def pagina2():
                     'Quantidade Total Produzida': [formatar_valores(val) for val in producao_total_ano],
                     'Expectativa de Produção': [formatar_valores(val) for val in expectativa_total_ano]
                 })
-                df_anos.index = df_anos.index + 1  # Ajuste de índice para iniciar do 1
+                dados_ano.set_index([''], inplace=True)
                 st.dataframe(df_anos, use_container_width=True)
 
                 # Gráfico de setores para a relação entre os anos
@@ -247,7 +249,7 @@ def pagina3():
      st.header('_Demanda por Composto_', divider='gray')
 
 # Interface do sistema
-st.set_page_config(page_title="Dashboard", page_icon="💡", layout="wide")
+st.set_page_config(page_title="Teste", page_icon="☁️", layout="wide")
 
 imagem_caminho = os.path.join(BASE_DIR, '.uploads', 'Logo.png')
 if os.path.exists(imagem_caminho):
