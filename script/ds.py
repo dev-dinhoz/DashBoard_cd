@@ -198,9 +198,7 @@ def pagina2():
                     else:
                         total_mes = dados_mes['Produção Alumínio Realizado'].sum()
                         expectativa_mes = dados_mes['Meta/Dia Alumínio'].iloc[0] * len(dados_mes.index) # ajustar método de calculo
-
-        # O mêtodo de calculo da expectativa de produção deve ser ajustado para a multiplicação do primeiro dia da meta por o número de dias no mês (índice)
-                    
+                        
                     # Exibir a produção e expectativa do mês fora do toggle
                     col1, col2 = st.columns([1, 1])
                     with col1:
