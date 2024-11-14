@@ -83,20 +83,8 @@ def carregar_todas_abas_ajustado(arquivo):
 
 @st.cache_data
 def carregar_dados_monitoring():
-    try:
-        wb1 = load_workbook(DADOS_MONITORING_PATH, data_only=True)
-        sheet = wb1.active
-        data = sheet.values
-        columns = next(data)  # Pega a primeira linha como cabeçalho
-        
-        # Corrigir a leitura dos dados
-        dados = pd.DataFrame(data, columns=columns)
-        dados = dados[['Produção Cobre Realizado', 'Produção Alumínio Realizado']]
-        return dados
-    except FileNotFoundError:
-        st.error(f"Arquivo '{DADOS_MONITORING_PATH}' não encontrado.")
-        return None
-
+ df = pd.read_excel(DADOS_MONITORING_PATH, header=2, sheet = ('ProgramaExtrusão'))
+ return df
 @st.cache_data
 def carregar_dados_demand():
     try:
@@ -243,7 +231,9 @@ def pagina2():
 
 def pagina3():
      st.header('_Demanda por Composto_', divider='gray')
-
+     dados = carregar_dados_demand(DADOS_DEMAND_PATH)
+     st.dataframe(dados.iloc[:, 17:])
+     
 # Interface do sistema
 st.set_page_config(page_title="Dashboard", page_icon="💡", layout="wide")
 
