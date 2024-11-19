@@ -116,7 +116,6 @@ def carregar_dados_demand():
 def pagina1():
     st.header('_Status Máquina_', divider='gray')
 
-# 
 # ajustar o índice da relação de anos
 # ajustar os o carregamento de dados de alumínio
 # ajustar formatação dos valores do DataFrame para apenas 2 casas decimais sejam exibidas depois da vírgula

@@ -56,7 +56,6 @@ def carregar_dados_pointing_ajustado(arquivo, sheet_name):
     except Exception as e:
         st.error(f"Erro ao carregar a aba {sheet_name}: {e}")
         return None
-
 # Função para carregar todas as abas válidas e processar os dados de pointing
 @st.cache_data
 def carregar_todas_abas_ajustado(arquivo):
@@ -80,7 +79,6 @@ def carregar_todas_abas_ajustado(arquivo):
                         dados_list.append(df_cleaned)
     
     return pd.concat(dados_list, ignore_index=True) if dados_list else None
-
 @st.cache_data
 def carregar_dados_monitoring():
  df = pd.read_excel(DADOS_MONITORING_PATH, header=2, sheet = ('ProgramaExtrusão'))
