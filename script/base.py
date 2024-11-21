@@ -72,7 +72,7 @@ def pagina3():
         st.error("Erro ao carregar os dados da aba 'Programa Extrusão'.")
 
 # Interface do sistema
-st.set_page_config(page_title="Dashboard", page_icon="💡", layout="wide")
+st.set_page_config(page_title="base", page_icon="💭", layout="wide")
 
 imagem_caminho = os.path.join(BASE_DIR, '.uploads', 'Logo.png')
 if os.path.exists(imagem_caminho):
