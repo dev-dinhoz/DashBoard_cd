@@ -10,11 +10,12 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Definir o formato de números como pt-BR
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
-locale.atof = lambda x: float(x.replace('.', '').replace(',', '.'))  # Ignorar separadores de milhar e considerar apenas 2 casas decimais
+locale.atof = lambda x: float(x.replace('.', '').replace(',', '.'))  
+# (talvez seja inútilKKK, mas deixa ai, não vamos mexer no que está quieto) Ignorar separadores de milhar e considerar apenas 2 casas decimais
 
 def formatar_valores(valor):
     """ Formatar valores numéricos no formato 10.000,00 """
-    return locale.format_string('%.2f', valor / 1000, grouping=True)  # Dividimos por 1000 para mostrar em milhares
+    return locale.format_string('%.2f', valor / 1000, grouping=True)  # Divide por 1000 para mostrar em milhares
 
 def formatar_data_brasileira(data):
     """ Formatar data no formato brasileiro dd/mm/yyyy """
