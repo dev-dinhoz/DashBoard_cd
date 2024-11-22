@@ -142,7 +142,7 @@ def pagina3():
         )
         st.plotly_chart(fig_compostos)
     else:
-        st.error("Erro ao carregar os dados da aba 'Programa Extrusão' ou 'Almoxarifado'.")
+     st.error("Erro ao carregar os dados da aba 'Programa Extrusão' ou 'Almoxarifado'.")
 
 # Interface do sistema
 st.set_page_config(page_title="ds3", page_icon="💭", layout="wide")
