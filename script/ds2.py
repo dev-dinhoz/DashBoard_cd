@@ -260,7 +260,7 @@ else:
 if 'pagina_atual' not in st.session_state:
     st.session_state.pagina_atual = 'pagina1'
 
-st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 botao_pagina1 = st.sidebar.button('(ICON1)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina1'}))
 st.sidebar.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
 botao_pagina2 = st.sidebar.button('(ICON2)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina2'}))

@@ -102,7 +102,7 @@ def carregar_dados_demand():
 
 # Funções para cada página
 def pagina1():
-    st.header('_Status Máquina_', divider='gray')
+    st.header('_Status Máquina_', divider='gray')                     #WEBSCRAPING MALDITO
 
 # ajustar os o carregamento de dados de alumínio
 # ajustar formatação dos valores do DataFrame META/DIA para apenas 2 casas decimais sejam exibidas depois da vírgula
@@ -246,7 +246,7 @@ else:
 if 'pagina_atual' not in st.session_state:
     st.session_state.pagina_atual = 'pagina1'
 
-st.sidebar.markdown("<br><br><br>", unsafe_allow_html=True)
+st.sidebar.markdown("<br><br>", unsafe_allow_html=True)
 botao_pagina1 = st.sidebar.button('(ICON1)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina1'}))
 st.sidebar.markdown("<br><br><br><br><br><br>", unsafe_allow_html=True)
 botao_pagina2 = st.sidebar.button('(ICON2)', on_click=lambda: st.session_state.update({'pagina_atual': 'pagina2'}))
