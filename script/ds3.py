@@ -32,14 +32,19 @@ def carregar_dados(caminho, aba, header):
         return None
 
 def carregar_dados_estoque(caminho):
-    """Carrega dados do almoxarifado e retorna os estoques na última data válida."""
+    """Carrega dados do almoxarifado, soma os estoques por grupo e retorna o saldo."""
     try:
         # Carregar a planilha completa
         dados = pd.read_excel(caminho, sheet_name="Folha1", header=1)
 
         # Identificar as colunas de datas
         colunas_datas = dados.columns[6:]  # As datas começam na coluna 6
-        ultima_coluna_valida = colunas_datas[-1]  # Última coluna (assumindo que tem dados)
+        ultima_coluna_valida = next(
+            (col for col in reversed(colunas_datas) if dados[col].notnull().any()), None
+        )
+
+        if not ultima_coluna_valida:
+            raise ValueError("Nenhuma coluna com valores atualizados foi encontrada.")
 
         # Extrair as informações relevantes
         dados_estoque = dados[["Produto", ultima_coluna_valida]].copy()
@@ -48,10 +53,14 @@ def carregar_dados_estoque(caminho):
         # Remover linhas sem produto ou estoque válido
         dados_estoque = dados_estoque.dropna(subset=["Produto", "Estoque (kg)"])
 
+        # Agrupar por grupo de materiais (ajustar conforme o formato dos dados)
+        dados_estoque = dados_estoque.groupby("Produto", as_index=False).sum()
+
         return dados_estoque
     except Exception as e:
         st.error(f"Erro ao carregar os dados de estoque: {e}")
         return None
+
 
 def extrair_cor(descricao):
     """Extrai a cor de um material a partir da descrição."""
@@ -101,8 +110,8 @@ def comparar_demanda_estoque(demanda_total, dados_estoque):
 
 def exibir_detalhes_composto(resultado, demanda_por_cor):
     """Organiza os expansores e as informações internas em colunas, ordenando por valor."""
-    colunas_por_linha_expansores = 2  # Número de expansores por linha
-    colunas_por_linha_info = 3  # Número de colunas dentro de cada expansor
+    colunas_por_linha_expansores = 3  # Número de expansores por linha
+    colunas_por_linha_info = 2  # Número de colunas dentro de cada expansor
 
     num_compostos = len(resultado)
 

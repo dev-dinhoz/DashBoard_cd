@@ -11,7 +11,7 @@ BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 # Definir o formato de números como pt-BR
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
 locale.atof = lambda x: float(x.replace('.', '').replace(',', '.'))  
-# (talvez seja inútilKKK, mas deixa ai, não vamos mexer no que está quieto) Ignorar separadores de milhar e considerar apenas 2 casas decimais
+# (talvez seja inútilKKK, mas deixa ai, não vamos mexer no que está quieto) 
 
 def formatar_valores(valor):
     """ Formatar valores numéricos no formato 10.000,00 """
@@ -84,6 +84,7 @@ def carregar_todas_abas_ajustado(arquivo):
 
 @st.cache_data
 def carregar_dados_monitoring():
+
     try:
         wb1 = load_workbook(DADOS_MONITORING_PATH, data_only=True)
         sheet = wb1.active

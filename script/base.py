@@ -36,11 +36,18 @@ def carregar_dados_estoque(caminho):
         # Carregar a planilha completa
         dados = pd.read_excel(caminho, sheet_name="Folha1", header=1)
 
-        # Identificar as colunas de datas
-        colunas_datas = dados.columns[6:]  # As datas começam na coluna 6
-        ultima_coluna_valida = colunas_datas[-1]  # Última coluna (assumindo que tem dados)
+        # Identificar as colunas de datas (a partir da 7ª coluna)
+        colunas_datas = dados.columns[6:]  # Colunas de datas começam na coluna 7
 
-        # Extrair as informações relevantes
+        # Identificar a última coluna com valores válidos
+        ultima_coluna_valida = next(
+            (col for col in reversed(colunas_datas) if dados[col].notnull().any()), None
+        )
+
+        if not ultima_coluna_valida:
+            raise ValueError("Nenhuma coluna com valores atualizados foi encontrada.")
+
+        # Extrair as informações relevantes (Produto e última coluna válida)
         dados_estoque = dados[["Produto", ultima_coluna_valida]].copy()
         dados_estoque = dados_estoque.rename(columns={ultima_coluna_valida: "Estoque (kg)"})
 
