@@ -2,7 +2,7 @@ import streamlit as st
 import pandas as pd
 import plotly.express as px
 import os
-import locale 
+import locale
 
 # Configurações gerais
 BASE_DIR = os.getcwd()
@@ -11,17 +11,22 @@ DADOS_ESTOQUE_PATH = os.path.join(BASE_DIR, ".database", "Novembro-2024 - Copia.
 
 st.set_page_config(page_title="Dashboard Operacional", layout="wide")
 
-# Definir o formato de números como pt-BR
+# Configuração para formato de números em pt-BR
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
-locale.atof = lambda x: float(x.replace('.', '').replace(',', '.'))  
-# (talvez seja inútilKKK, mas deixa ai, não vamos mexer no que está quieto) Ignorar separadores de milhar e considerar apenas 2 casas decimais
+locale.atof = lambda x: float(x.replace('.', '').replace(',', '.'))  # Ajustar separadores de milhar
 
 def formatar_valores(valor):
     """ Formatar valores numéricos no formato 10.000,00 """
     return locale.format_string('%.2f', valor)
 
+# Dicionário para exceções manuais de grupos
+EXCECOES_GRUPOS = {
+    "GrupoInvalido1": "GrupoCorreto1",
+    "GrupoInvalido2": "GrupoCorreto2",
+    # Adicione mais exceções conforme necessário
+}
+
 # Funções utilitárias
-@st.cache_data
 def carregar_dados(caminho, aba, header):
     """Carrega dados de uma planilha Excel."""
     try:
@@ -34,11 +39,10 @@ def carregar_dados(caminho, aba, header):
 def carregar_dados_estoque(caminho):
     """Carrega dados do almoxarifado, soma os estoques por grupo e retorna o saldo."""
     try:
-        # Carregar a planilha completa
         dados = pd.read_excel(caminho, sheet_name="Folha1", header=1)
 
         # Identificar as colunas de datas
-        colunas_datas = dados.columns[6:]  # As datas começam na coluna 6
+        colunas_datas = dados.columns[6:]
         ultima_coluna_valida = next(
             (col for col in reversed(colunas_datas) if dados[col].notnull().any()), None
         )
@@ -46,21 +50,14 @@ def carregar_dados_estoque(caminho):
         if not ultima_coluna_valida:
             raise ValueError("Nenhuma coluna com valores atualizados foi encontrada.")
 
-        # Extrair as informações relevantes
+        # Extrair dados relevantes
         dados_estoque = dados[["Produto", ultima_coluna_valida]].copy()
         dados_estoque = dados_estoque.rename(columns={ultima_coluna_valida: "Estoque (kg)"})
-
-        # Remover linhas sem produto ou estoque válido
         dados_estoque = dados_estoque.dropna(subset=["Produto", "Estoque (kg)"])
-
-        # Agrupar por grupo de materiais (ajustar conforme o formato dos dados)
-        dados_estoque = dados_estoque.groupby("Produto", as_index=False).sum()
-
         return dados_estoque
     except Exception as e:
         st.error(f"Erro ao carregar os dados de estoque: {e}")
         return None
-
 
 def extrair_cor(descricao):
     """Extrai a cor de um material a partir da descrição."""
@@ -70,133 +67,91 @@ def extrair_cor(descricao):
         return descricao.split('-')[-1].strip()
     return "Indefinido"
 
+def identificar_grupo_dinamico(composto, grupos_demanda):
+    """Identifica o grupo de um composto com base na demanda e nas exceções."""
+    for grupo in grupos_demanda:
+        if grupo in composto:
+            return grupo
+    for grupo_invalido, grupo_correto in EXCECOES_GRUPOS.items():
+        if grupo_invalido in composto:
+            return grupo_correto
+    return "OUTROS"
+
+def extrair_grupos_dinamicos(demanda_total):
+    """Extrai os grupos a partir da demanda."""
+    return [composto for composto in demanda_total.index if not composto.startswith("Cor")]
+
 def processar_demanda(dados_producao):
     """Processa demandas e organiza por composto e cor."""
-    # Identificar colunas descritivas e compostos
     colunas_descritivas = dados_producao.columns[:18]
     colunas_compostos = dados_producao.columns[18:]
-
-    # Adicionar coluna de cor
     dados_producao["Cor"] = dados_producao["DESCRIÇÃO"].apply(extrair_cor)
-
-    # Soma total por composto
     demanda_total = dados_producao[colunas_compostos].sum()
-
-    # Soma por cor
-    demanda_por_cor = (
-        dados_producao.groupby("Cor")[colunas_compostos].sum().reset_index()
-    )
+    demanda_por_cor = dados_producao.groupby("Cor")[colunas_compostos].sum().reset_index()
     return demanda_total, demanda_por_cor
 
-def comparar_demanda_estoque(demanda_total, dados_estoque):
-    """Compara a demanda total de compostos com o estoque disponível."""
-    # Reindexar estoque para alinhar com os compostos da demanda
-    estoque_atual = dados_estoque.set_index("Produto")["Estoque (kg)"]
+def agregar_dados_por_grupo(demanda_total, dados_estoque):
+    """Consolida a demanda e o estoque por grupo."""
+    grupos_demanda = extrair_grupos_dinamicos(demanda_total)
+    demanda_total = demanda_total.reset_index()
+    demanda_total["Grupo"] = demanda_total["index"].apply(
+        lambda composto: identificar_grupo_dinamico(composto, grupos_demanda)
+    )
+    demanda_agrupada = demanda_total.groupby("Grupo")[0].sum().reset_index()
+    demanda_agrupada = demanda_agrupada.rename(columns={0: "Demanda (kg)"})
 
-    # Garantir alinhamento entre demanda e estoque
-    estoque_atual = estoque_atual.reindex(demanda_total.index, fill_value=0)
+    dados_estoque["Grupo"] = dados_estoque["Produto"].apply(
+        lambda produto: identificar_grupo_dinamico(produto, grupos_demanda)
+    )
+    estoque_agrupado = dados_estoque.groupby("Grupo")["Estoque (kg)"].sum().reset_index()
+    estoque_agrupado = estoque_agrupado.rename(columns={"Estoque (kg)": "Estoque Total (kg)"})
 
-    # Calcular o saldo
-    saldo = demanda_total - estoque_atual
+    df_consolidado = pd.merge(
+        demanda_agrupada, estoque_agrupado, on="Grupo", how="outer"
+    ).fillna(0)
+    df_consolidado["Saldo (kg)"] = df_consolidado["Estoque Total (kg)"] - df_consolidado["Demanda (kg)"]
+    return df_consolidado
 
-    # Criar dataframe de resultado
-    resultado = pd.DataFrame({
-        "Composto": demanda_total.index,
-        "Demanda (kg)": demanda_total.values,
-        "Estoque Atual (kg)": estoque_atual.values,
-        "Saldo (kg)": saldo.values,
-    })
-    return resultado
-
-def exibir_detalhes_composto(resultado, demanda_por_cor):
-    """Organiza os expansores e as informações internas em colunas, ordenando por valor."""
-    colunas_por_linha_expansores = 3  # Número de expansores por linha
-    colunas_por_linha_info = 2  # Número de colunas dentro de cada expansor
-
-    num_compostos = len(resultado)
-
-    # Criar linhas de expansores
-    linhas_expansores = [
-        resultado.iloc[i : i + colunas_por_linha_expansores]
-        for i in range(0, num_compostos, colunas_por_linha_expansores)
-    ]
-
-    # Renderizar expansores organizados em colunas
-    for linha in linhas_expansores:
-        cols = st.columns(colunas_por_linha_expansores)
-        for col, composto_data in zip(cols, linha.itertuples()):
-            with col:
-                with st.expander(f"Detalhes do Composto: {composto_data.Composto}"):
-                    # Exibir informações detalhadas por cor em grade
-                    if composto_data.Composto in demanda_por_cor.columns:
-                        dados_detalhados = demanda_por_cor[["Cor", composto_data.Composto]]
-                        dados_detalhados = dados_detalhados.rename(
-                            columns={composto_data.Composto: "Demanda (kg)"}
-                        )
-
-                        # Ordenar os dados por valor de demanda (decrescente)
-                        dados_detalhados = dados_detalhados.sort_values(
-                            by="Demanda (kg)", ascending=False
-                        )
-
-                        # Organizar os detalhes em colunas
-                        num_infos = len(dados_detalhados)
-                        linhas_info = [
-                            dados_detalhados.iloc[i : i + colunas_por_linha_info]
-                            for i in range(0, num_infos, colunas_por_linha_info)
-                        ]
-
-                        for linha_info in linhas_info:
-                            cols_info = st.columns(colunas_por_linha_info)
-                            for col_info, info in zip(cols_info, linha_info.itertuples()):
-                                with col_info:
-                                    st.metric(
-                                        label=f"Cor: {info.Cor}",
-                                        value=f"{info._2} kg",
-                                    )
-
-# Página principal
 def pagina_demanda_polimeros():
     st.title("Demanda de Polímeros")
     st.write("### Comparação entre demanda de produção e estoque de polímeros")
 
-    # Carregar dados
     dados_producao = carregar_dados(DADOS_PRODUCAO_PATH, "ProgramaExtrusão", 4)
     dados_estoque = carregar_dados_estoque(DADOS_ESTOQUE_PATH)
 
     if dados_producao is not None and dados_estoque is not None:
-        
-        # Processar demanda
         demanda_total, demanda_por_cor = processar_demanda(dados_producao)
+        df_consolidado = agregar_dados_por_grupo(demanda_total, dados_estoque)
 
-        # Comparar demanda e estoque
-        resultado_comparacao = comparar_demanda_estoque(demanda_total, dados_estoque)
-
-        # Exibir resultados gerais
-        st.subheader("Resumo Geral")
+        st.subheader("Resumo por Grupo")
         st.dataframe(
-            resultado_comparacao.style.applymap(
+            df_consolidado.style.applymap(
                 lambda x: "background-color: red" if x < 0 else "background-color: green",
                 subset=["Saldo (kg)"]
             )
         )
 
-        # Gráfico de distribuição
-        st.subheader("Distribuição de Demanda por Composto")
+        st.subheader("Distribuição por Grupo")
         fig = px.bar(
-            resultado_comparacao,
-            x="Composto",
-            y=["Demanda (kg)", "Estoque Atual (kg)"],
+            df_consolidado,
+            x="Grupo",
+            y=["Demanda (kg)", "Estoque Total (kg)"],
             barmode="group",
-            title="Comparativo de Demanda e Estoque"
+            title="Comparativo de Demanda e Estoque por Grupo"
         )
         st.plotly_chart(fig)
 
-        # Exibir detalhes por composto
-        exibir_detalhes_composto(resultado_comparacao, demanda_por_cor)
+        st.subheader("Detalhes por Composto")
+        for composto in demanda_por_cor.columns[1:]:
+            with st.expander(f"Composto: {composto}"):
+                detalhamento = demanda_por_cor[["Cor", composto]].rename(
+                    columns={composto: "Demanda (kg)"}
+                )
+                detalhamento = detalhamento.sort_values(by="Demanda (kg)", ascending=False)
+                
+                st.dataframe(detalhamento)
     else:
         st.error("Erro ao carregar os dados das planilhas.")
 
-# Configuração e exibição
-
+# Execução
 pagina_demanda_polimeros()

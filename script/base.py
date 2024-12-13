@@ -15,12 +15,11 @@ st.set_page_config(page_title="Dashboard Operacional", layout="wide")
 locale.setlocale(locale.LC_ALL, 'pt_BR.UTF-8')
 locale.atof = lambda x: float(x.replace('.', '').replace(',', '.'))  
 # (talvez seja inútilKKK, mas deixa ai, não vamos mexer no que está quieto) Ignorar separadores de milhar e considerar apenas 2 casas decimais
+
 def formatar_valores(valor):
     """ Formatar valores numéricos no formato 10.000,00 """
     return locale.format_string('%.2f', valor)
-
 # Funções utilitárias
-@st.cache_data
 def carregar_dados(caminho, aba, header):
     """Carrega dados de uma planilha Excel."""
     try:
@@ -31,15 +30,13 @@ def carregar_dados(caminho, aba, header):
         return None
 
 def carregar_dados_estoque(caminho):
-    """Carrega dados do almoxarifado e retorna os estoques na última data válida."""
+    """Carrega dados do almoxarifado, soma os estoques por grupo e retorna o saldo."""
     try:
         # Carregar a planilha completa
         dados = pd.read_excel(caminho, sheet_name="Folha1", header=1)
 
-        # Identificar as colunas de datas (a partir da 7ª coluna)
-        colunas_datas = dados.columns[6:]  # Colunas de datas começam na coluna 7
-
-        # Identificar a última coluna com valores válidos
+        # Identificar as colunas de datas
+        colunas_datas = dados.columns[6:]  # As datas começam na coluna 6
         ultima_coluna_valida = next(
             (col for col in reversed(colunas_datas) if dados[col].notnull().any()), None
         )
@@ -47,12 +44,15 @@ def carregar_dados_estoque(caminho):
         if not ultima_coluna_valida:
             raise ValueError("Nenhuma coluna com valores atualizados foi encontrada.")
 
-        # Extrair as informações relevantes (Produto e última coluna válida)
+        # Extrair as informações relevantes
         dados_estoque = dados[["Produto", ultima_coluna_valida]].copy()
         dados_estoque = dados_estoque.rename(columns={ultima_coluna_valida: "Estoque (kg)"})
 
         # Remover linhas sem produto ou estoque válido
         dados_estoque = dados_estoque.dropna(subset=["Produto", "Estoque (kg)"])
+
+        # Agrupar por grupo de materiais (ajustar conforme o formato dos dados)
+        dados_estoque = dados_estoque.groupby("Produto", as_index=False).sum()
 
         return dados_estoque
     except Exception as e:
@@ -107,8 +107,8 @@ def comparar_demanda_estoque(demanda_total, dados_estoque):
 
 def exibir_detalhes_composto(resultado, demanda_por_cor):
     """Organiza os expansores e as informações internas em colunas, ordenando por valor."""
-    colunas_por_linha_expansores = 2  # Número de expansores por linha
-    colunas_por_linha_info = 3  # Número de colunas dentro de cada expansor
+    colunas_por_linha_expansores = 3  # Número de expansores por linha
+    colunas_por_linha_info = 2  # Número de colunas dentro de cada expansor
 
     num_compostos = len(resultado)
 

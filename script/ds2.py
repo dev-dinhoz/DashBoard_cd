@@ -82,38 +82,6 @@ def carregar_todas_abas_ajustado(arquivo):
     
     return pd.concat(dados_list, ignore_index=True) if dados_list else None
 
-@st.cache_data
-def carregar_dados_monitoring():
-
-    try:
-        wb1 = load_workbook(DADOS_MONITORING_PATH, data_only=True)
-        sheet = wb1.active
-        data = sheet.values
-        columns = next(data)  # Pega a primeira linha como cabeçalho
-        
-        # Corrigir a leitura dos dados
-        dados = pd.DataFrame(data, columns=columns)
-        dados = dados[['Produção Cobre Realizado', 'Produção Alumínio Realizado']]
-        return dados
-    except FileNotFoundError:
-        st.error(f"Arquivo '{DADOS_MONITORING_PATH}' não encontrado.")
-        return None
-
-@st.cache_data
-def carregar_dados_demand():
-    try:
-        wb3 = load_workbook(DADOS_DEMAND_PATH, data_only=True)
-        sheet = wb3.active
-        data = sheet.values
-        columns = next(data)
-        
-        dados = pd.DataFrame(data, columns=columns)  # Corrigir a leitura dos dados
-        dados = dados[['Data', 'Produção Cobre Realizado', 'Produção Alumínio Realizado']]
-        return dados
-    except FileNotFoundError:
-        st.error(f"Arquivo '{DADOS_DEMAND_PATH}' não encontrado.")
-        return None
-
 # Funções para cada página
 def pagina1():
     st.header('_Status Máquina_', divider='gray')

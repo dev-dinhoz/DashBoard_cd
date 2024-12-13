@@ -36,6 +36,8 @@ def carregar_dados_estoque(caminho):
 
         # Remover linhas sem produto ou estoque válido
         dados_estoque = dados_estoque.dropna(subset=["Produto", "Estoque (kg)"])
+        dados_estoque = dados_estoque.groupby("Produto", as_index=False).sum()
+        
         print("Dados de estoque após remoção de valores nulos:")
         print(dados_estoque.head())  # Mostra as primeiras linhas após remoção de NaN
 
