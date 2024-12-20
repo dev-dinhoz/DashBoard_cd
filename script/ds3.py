@@ -20,12 +20,22 @@ def formatar_valores(valor):
     return locale.format_string('%.2f', valor)
 
 # Dicionário para exceções manuais de grupos
-EXCECOES_GRUPOS = {
-    "GrupoInvalido1": "GrupoCorreto1",
-    "GrupoInvalido2": "GrupoCorreto2",
+dicionario_cores = {
+    ("PRETO", "PR1FRISO", "PR3FRISOS", "PRETO", "PRETO(1FRISO)", "PRETO(2FRISO)","PRETO(3FRISO)"): "PR",
+    "AZUL": "AZ",
+    "AMARELO": "AM",
+    "VERDE": "VD",
+    "VERMELHO": "VM",
+    "CINZA": "CZ",
+    "BRANCO": "BN",
+    "LARANJA": "LJ"
+
     # Adicione mais exceções conforme necessário
 }
 
+# dicionario_composto = {
+
+# }
 # Funções utilitárias
 def carregar_dados(caminho, aba, header):
     """Carrega dados de uma planilha Excel."""
@@ -54,6 +64,9 @@ def carregar_dados_estoque(caminho):
         dados_estoque = dados[["Produto", ultima_coluna_valida]].copy()
         dados_estoque = dados_estoque.rename(columns={ultima_coluna_valida: "Estoque (kg)"})
         dados_estoque = dados_estoque.dropna(subset=["Produto", "Estoque (kg)"])
+
+        dados_estoque = dados_estoque.groupby("Produto", as_index=False).sum()
+        
         return dados_estoque
     except Exception as e:
         st.error(f"Erro ao carregar os dados de estoque: {e}")
@@ -72,7 +85,7 @@ def identificar_grupo_dinamico(composto, grupos_demanda):
     for grupo in grupos_demanda:
         if grupo in composto:
             return grupo
-    for grupo_invalido, grupo_correto in EXCECOES_GRUPOS.items():
+    for grupo_invalido, grupo_correto in dicionario_cores.items():
         if grupo_invalido in composto:
             return grupo_correto
     return "OUTROS"

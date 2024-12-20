@@ -51,11 +51,9 @@ def carregar_dados_estoque(caminho):
         )
         if not ultima_coluna_valida:
             raise ValueError("Nenhuma coluna com valores atualizados foi encontrada.")
-        
-        st.write(f"Última coluna válida encontrada: {ultima_coluna_valida}")
-        
+
         # Selecionar a última coluna de estoque
-        dados_estoque = dados[["Unnamed: 2", ultima_coluna_valida]].copy()
+        dados_estoque = dados[["Produto", ultima_coluna_valida]].copy()
         dados_estoque.columns = ["Produto", "Estoque (kg)"]  # Renomear colunas
         dados_estoque = dados_estoque.dropna(subset=["Produto", "Estoque (kg)"])
         
